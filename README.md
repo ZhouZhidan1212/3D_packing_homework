@@ -140,7 +140,7 @@ for i = 1 to 2{
 因为不同箱子有六个不同的放置面，根据现实经验，放置一定数量的箱子后，每放入一个箱子，若这个箱子与已放置的箱子
 重叠面面积越大（也就是此箱子与已放置箱子越紧贴），则装箱效果理应越好，如下图所示，图二a的摆放方式应比图二b的
 摆放方式更合理。受此启发，我们在程序中引入了此算法。
-
+[!image](https://github.com/ZhouZhidan1212/3D_packing_homework/blob/main/images/image2.png)
 假定此次放入第$i$个箱子，$b_i$，计算它与已放置箱子的重叠面积，可以转化为它与相邻箱子在$xy$平面、$xz$平面和$yz$
 平面的投影重叠面积，投影重叠面积越大，说明它与已放置箱子贴的越紧密。而$b_i$与相邻箱子的投影重叠面积又可以近似于
 此箱子与紧贴三个坐标平面的箱子的重叠面积，于是，我们存储了所有紧贴三个坐标平面的箱子，创建`rectangles_overlap_area()`
@@ -167,3 +167,4 @@ for i = 1 to 2{
 ### 2. 结果评估
 
 下图是装箱结果示意图：
+[!image](https://github.com/ZhouZhidan1212/3D_packing_homework/blob/main/images/image3.png)
