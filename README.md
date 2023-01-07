@@ -151,14 +151,799 @@ for i = 1 to 2{
 
 ### 1. 代码结构
 
-所有算法的实现将组织在一个名为*算法设计*的包中。该包分为四个模块：`__init__`、`_cargo`、`_container`和`drawer`。
+所有算法的实现将组织在一个名为*算法设计*的包中。该包分为五个模块：`__init__`、`_cargo`、`_container`、`_Program`和`drawer`。
 
 - `__init__`：用于初始化包并组织算法代码和可变策略类；
 - `_cargo`：组织箱子的代码；
 - `_container`：关于容器的相关类代码；
-- `drawer`：组织绘制3D效果图的相关函数代码。
+- `drawer`：组织绘制3D效果图的相关函数代码；
+- `Program`：总的控制和运行文件，加入箱子和容器尺寸命令。
+
+### 1.1 初步算法代码
+
+#### 1. `__init__.py`
+
+```Python
+from typing import Iterable, List
+from _cargo import *
+from _container import *
+import random
+
+class Strategy(object):
+    # 继承此类 重写两个静态函数 实现自定义两个装载策略: 装箱顺序 和 货物.
+    @staticmethod
+    def encasement_sequence(cargos:Iterable) -> Iterable:
+        return cargos
+
+    @staticmethod
+    def choose_cargo_poses(cargo:Cargo, container:Container) -> list:
+        return list(CargoPose)
+
+def encase_cargos_into_container(
+    cargos:Iterable, 
+    container:Container, 
+    strategy:type
+) -> float:
+    sorted_cargos:List[Cargo] = strategy.encasement_sequence(cargos)
+    i = 0 # 记录发当前货物
+    print(sorted_cargos,'ffff')
+    # 随意调换四个摆放顺序
+    for k in range(4):
+        p1 = random.randint(int(len(sorted_cargos)/2), int(len(sorted_cargos)*3/4)-1)
+        p2 = random.randint(int(len(sorted_cargos)*3/4), len(sorted_cargos)-1)
+        sorted_cargos[p1], sorted_cargos[p2] = sorted_cargos[p2], sorted_cargos[p1]
+
+    print(sorted_cargos,'ssss')
+
+    while i < len(sorted_cargos):
+        j = 0 # 记录当前摆放方式
+        cargo = sorted_cargos[i]
+        poses = strategy.choose_cargo_poses(cargo, container)
+
+        # 没加任何东西：
+        temp_flag = []
+        while j < len(poses):
+            cargo.pose = poses[j]
+            is_encased = container._encase(cargo)
+            temp_flag.append(deepcopy(is_encased))
+            if is_encased.is_valid:
+                break # 可以装入 不在考虑后续摆放方式
+            j += 1  # 不可装入 查看下一个摆放方式
+        container._extend_points(cargo, temp_flag[-1])
+
+        # 一直都用最小面
+        '''area = [0 for _ in range(len(poses))]
+        temp_flag = []
+        while j < len(poses):
+            cargo.pose = poses[j]
+            is_encased = container._encase(cargo)
+            temp_flag.append(deepcopy(is_encased))
+            if is_encased.is_valid:
+                print(area)
+                area[j] = container.rectangles_overlap_area_sum(cargo) 
+            j += 1
+        b = area.index(max(area))
+        cargo.pose = poses[b]
+        container._extend_points(cargo, temp_flag[b])'''
+
+        # 先随机放，再用最小面
+        '''if i <= 0.3*len(sorted_cargos):
+            temp_flag = []
+            while j < len(poses):
+                cargo.pose = poses[j]
+                is_encased = container._encase(cargo)
+                temp_flag.append(deepcopy(is_encased))
+                if is_encased.is_valid:
+                    break # 可以装入 不在考虑后续摆放方式
+                j += 1  # 不可装入 查看下一个摆放方式
+            container._extend_points(cargo, temp_flag[-1])
+
+        elif i > 0.3*len(sorted_cargos):
+            area = [0 for _ in range(len(poses))]
+            temp_flag = []
+            while j < len(poses):
+                cargo.pose = poses[j]
+                is_encased = container._encase(cargo)
+                temp_flag.append(deepcopy(is_encased))
+                if is_encased.is_valid:
+                    print(area)
+                    area[j] = container.rectangles_overlap_area_sum(cargo) 
+                j += 1
+            b = area.index(max(area))
+            cargo.pose = poses[b]
+            container._extend_points(cargo, temp_flag[b])#'''
+        
+        # 放底面最大面
+        '''area = [99999999 for _ in range(len(poses))]
+        temp_flag = []
+        while j < len(poses):
+            cargo.pose = poses[j]
+            is_encased = container._encase(cargo)
+            temp_flag.append(deepcopy(is_encased))
+            if is_encased.is_valid:
+                area[j] = container.rectangles_overlap_area_bottom(cargo) 
+                #print(area,'~~')
+                #print(cargo,'!!')
+            j += 1
+        b = area.index(min(area))
+        cargo.pose = poses[b]
+        print(cargo,'!!!')
+        container._extend_points(cargo, temp_flag[b])'''
+
+        #放底面最小面
+        '''area = [0 for _ in range(len(poses))]
+        temp_flag = []
+        while j < len(poses):
+            cargo.pose = poses[j]
+            is_encased = container._encase(cargo)
+            temp_flag.append(deepcopy(is_encased))
+            if is_encased.is_valid:
+                print(area)
+                area[j] = container.rectangles_overlap_area_bottom(cargo) 
+            j += 1
+        b = area.index(max(area))
+        cargo.pose = poses[b]
+        container._extend_points(cargo, temp_flag[b])'''
+
+        
+        if is_encased.is_valid:
+            container._setted_cargos.append(cargo)
+            i += 1 # 成功放入 继续装箱
+        elif is_encased == Point(-1,-1,0):
+            continue # 没放进去但是修改了参考面位置 重装
+        else :
+            i += 1 # 纯纯没放进去 跳过看下一个箱子
+    return sum(list(map(
+            lambda cargo:cargo.volume,container._setted_cargos
+        ))) / container.volume
+
+
+
+class VolumeGreedyStrategy(Strategy):
+    @staticmethod
+    def encasement_sequence(cargos:Iterable) -> Iterable:
+        return sorted(cargos, key= lambda cargo:cargo.volume,reverse=1)
+
+    @staticmethod
+    def choose_cargo_poses(cargo:Cargo, container:Container) -> list:
+        return list(CargoPose)
+```
+
+#### 2. `cargo.py`
+
+```Python
+from enum import Enum
+
+
+class CargoPose(Enum):
+    tall_wide = 0
+    tall_thin = 1
+    mid_wide = 2
+    mid_thin = 3
+    short_wide = 4
+    short_thin = 5
+
+
+class Point(object):
+    def __init__(self, x: int, y: int, z: int) -> None:
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def __repr__(self) -> str:
+        return f"({self.x},{self.y},{self.z})"
+    
+    def __eq__(self, __o: object) -> bool:
+        return self.x == __o.x and self.y == __o.y and self.z == __o.z
+
+    @property
+    def is_valid(self) -> bool:
+        return self.x >= 0 and self.y >=0 and self.z>= 0
+    
+    @property
+    def tuple(self) -> tuple:
+        return (self.x, self.y, self.z)
+
+
+class Cargo(object):
+    def __init__(self, length: int, width: int, height: int) -> None:
+        self._point = Point(-1, -1, -1)
+        self._shape = {length, width, height}
+        self._pose = CargoPose.tall_thin
+
+    def __repr__(self) -> str:
+        return f"{self._point} {self.shape}"
+
+    @property
+    def pose(self) -> CargoPose:
+        return self._pose
+
+    @pose.setter
+    def pose(self, new_pose: CargoPose):
+        self._pose = new_pose
+
+    @property
+    def _shape_swiche(self) -> dict:
+        edges = sorted(self._shape)
+        return {
+            CargoPose.tall_thin: (edges[1], edges[0], edges[-1]),
+            CargoPose.tall_wide: (edges[0], edges[1], edges[-1]),
+            CargoPose.mid_thin: (edges[-1], edges[0], edges[1]),
+            CargoPose.mid_wide: (edges[0], edges[-1], edges[-1]),
+            CargoPose.short_thin: (edges[-1], edges[1], edges[0]),
+            CargoPose.short_wide: (edges[1], edges[-1], edges[0])
+        }
+
+    @property
+    def point(self):
+        return self._point
+
+    @point.setter
+    def point(self, new_point:Point):
+        self._point = new_point
+
+    @property
+    def x(self) -> int:
+        return self._point.x
+
+    @x.setter
+    def x(self, new_x: int):
+        self._point = Point(new_x, self.y, self.z)
+
+    @property
+    def y(self) -> int:
+        return self._point.y
+
+    @y.setter
+    def y(self, new_y: int):
+        self._point = Point(self.x, new_y, self.z)
+
+    @property
+    def z(self) -> int:
+        return self._point.z
+
+    @z.setter
+    def z(self, new_z: int):
+        self._point = Point(self.z, self.y, new_z)
+
+    @property
+    def length(self) -> int:
+        return self.shape[0]
+
+    @property
+    def width(self) -> int:
+        return self.shape[1]
+
+    @property
+    def height(self) -> int:
+        return self.shape[-1]
+
+    def get_shadow_of(self, planar: str) -> tuple:
+        if planar in ("xy", "yx"):
+            x0, y0 = self.x, self.y
+            x1, y1 = self.x + self.length, self.y + self.width
+        elif planar in ("xz", "zx"):
+            x0, y0 = self.x, self.z
+            x1, y1 = self.x + self.length, self.z + self.height
+        elif planar in ("yz", "zy"):
+            x0, y0 = self.y, self.z
+            x1, y1 = self.y + self.width, self.z + self.height
+        return (x0, y0, x1, y1)
+
+    @property
+    def shape(self) -> tuple:
+        return self._shape_swiche[self._pose]
+
+    @shape.setter
+    def shape(self, length, width, height):
+        self._shape = {length, width, height}
+
+    @property
+    def volume(self) -> int:
+        reslut = 1
+        for i in self._shape:
+            reslut *= i
+        return reslut
+```
+
+#### 3. `_container.py`
+
+```Python
+from time import time
+from typing import List
+from _cargo import *
+from copy import deepcopy
+
+
+class Container(object):
+    def __init__(self, length: int, width: int, height: int) -> None:
+        self._length = length
+        self._width = width
+        self._height = height
+        self._refresh()
+
+    def __repr__(self) -> str:
+        return f"{self._length}, {self._width}, {self._height}"
+
+    def _refresh(self):
+        self._horizontal_planar = 0  # 水平放置参考面
+        self._vertical_planar = 0  # 垂直放置参考面
+        self._available_points = [Point(0, 0, 0)]  # 可放置点有序集合
+        self._setted_cargos : List[Cargo] = []
+        self.plane_shadow = [[],[],[]] # 创建紧贴坐标面的cargo列表
+
+    def _sort_available_points(self):
+        self._available_points.sort(key=lambda x: x.z)
+        self._available_points.sort(key=lambda x: x.x)
+        self._available_points.sort(key=lambda x: x.y)
+
+    def is_encasable(self, site: Point, cargo: Cargo) -> bool:
+        encasable = True
+        temp = deepcopy(cargo)
+        temp.point = site
+        if (
+            temp.x + temp.length > self.length or
+            temp.y + temp.width > self.width or
+            temp.z + temp.height > self.height
+        ):
+            encasable = False
+        for setted_cargo in self._setted_cargos:
+            if _is_cargos_collide(temp, setted_cargo):
+                encasable = False
+        return encasable
+
+    def _encase(self, cargo: Cargo) -> Point:
+        # flag存储放置位置, (-1, -1, 0)放置失败并调整参考面, (-1, -1, -1)放置失败.
+        flag = Point(-1, -1, -1)  
+        # 用于记录执行前的参考面位置, 便于后续比较
+        history = [self._horizontal_planar, self._vertical_planar]
+        def __is_planar_changed() -> bool:
+            return (
+                not flag.is_valid and # 防止破坏已经确定可放置的点位, 即只能在(-1, -1, -1)基础上改
+                self._horizontal_planar == history[0] and 
+                self._vertical_planar == history[-1]
+            ) 
+        for point in self._available_points:
+            if (
+                self.is_encasable(point, cargo) and
+                point.x + cargo.length < self._horizontal_planar and
+                point.z + cargo.height < self._vertical_planar
+            ):
+                flag = point
+                break
+        if not flag.is_valid:
+            if (
+                self._horizontal_planar == 0 or
+                self._horizontal_planar == self.length
+            ):
+                if self.is_encasable(Point(0, 0, self._vertical_planar), cargo):
+                    flag = Point(0, 0, self._vertical_planar)
+                    self._vertical_planar += cargo.height
+                    self._horizontal_planar = cargo.length 
+                    # 放置了货物 不检测参考面改变
+                elif self._vertical_planar < self.height:
+                    self._vertical_planar = self.height
+                    self._horizontal_planar = self.length
+                    if __is_planar_changed():
+                        flag.z == 0 # 放置失败并调整参考面
+            else:
+                for point in self._available_points:
+                    if (
+                        point.x == self._horizontal_planar and
+                        point.y == 0 and
+                        self.is_encasable(point, cargo) and
+                        point.z + cargo.height <= self._vertical_planar
+                    ):
+                        flag = point
+                        self._horizontal_planar += cargo.length
+                        break
+                        # 放置了货物 不检测参考面改变
+                if not flag.is_valid:
+                    self._horizontal_planar = self.length
+                    if __is_planar_changed():
+                        flag.z == 0 # 放置失败并调整参考面
+
+
+        return flag
+
+    def _extend_points(self,cargo,flag):
+        if flag.is_valid:
+            print(flag)
+            print(cargo,'$$')
+            cargo.point = flag
+            print(cargo,'^^')
+            if flag in self._available_points:
+                self._available_points.remove(flag)
+            self._adjust_setting_cargo(cargo)
+       #     self._setted_cargos.append(cargo)
+            self._available_points.extend([
+                Point(cargo.x + cargo.length, cargo.y, cargo.z),
+                Point(cargo.x, cargo.y + cargo.width, cargo.z),
+                Point(cargo.x, cargo.y, cargo.z + cargo.height)
+            ])
+            #若cargo贴着坐标面，则加入到各自的分组中
+            if cargo.x == 0:
+                self.plane_shadow[0].append(cargo) #yz面货物集合
+            if cargo.y == 0:
+                self.plane_shadow[1].append(cargo) #xz面货物集合
+            if cargo.z == 0:
+                self.plane_shadow[2].append(cargo) #xy面货物集合
+            self._sort_available_points()
+
+    def _adjust_setting_cargo(self, cargo: Cargo):
+        site = cargo.point
+        temp = deepcopy(cargo)
+        if not self.is_encasable(site, cargo):
+            return None
+        xyz = [site.x, site.y, site.z] 
+        # 序列化坐标以执行遍历递减操作, 减少冗余
+        for i in range(3): # 012 分别表示 xyz
+            is_continue = True
+            while xyz[i] > 1 and is_continue:
+                xyz[i] -= 1
+                temp.point = Point(xyz[0], xyz[1], xyz[2])
+                for setted_cargo in self._setted_cargos:
+                    if not _is_cargos_collide(setted_cargo, temp):
+                        continue
+                    xyz[i] += 1
+                    is_continue = False
+                    break
+        cargo.point = Point(xyz[0], xyz[1], xyz[2]) # 反序列化
+    
+    # 求出每一个cargo与三个平面投影面积重叠的和
+    def rectangles_overlap_area_sum(self, cargo: Cargo):
+        temp = deepcopy(cargo)
+        area = 0
+        for i in range(3):
+            for j in range(len(self.plane_shadow[i])):
+                plusarea = rectangles_overlap_area(self.plane_shadow[i][j], temp, i)
+                area += plusarea
+        return area
+
+    # 求每一个cargo与底面投影面积重叠面积
+    def rectangles_overlap_area_bottom(self, cargo: Cargo):
+        temp = deepcopy(cargo)
+        area = 0
+        for j in range(len(self.plane_shadow[2])):
+            plusarea = rectangles_overlap_area(self.plane_shadow[2][j], temp, 2)
+            area += plusarea
+        return area
+
+
+
+    def save_encasement_as_file(self):
+        file = open(f"{int(time())}_encasement.csv",'w',encoding='utf-8')
+        file.write(f"index,x,y,z,length,width,height\n")
+        i = 1
+        for cargo in self._setted_cargos:
+            file.write(f"{i},{cargo.x},{cargo.y},{cargo.z},")
+            file.write(f"{cargo.length},{cargo.width},{cargo.height}\n")
+            i += 1
+        file.write(f"container,,,,{self}\n")
+        file.close()
+
+    @property
+    def length(self) -> int:
+        return self._length
+
+    @property
+    def width(self) -> int:
+        return self._width
+
+    @property
+    def height(self) -> int:
+        return self._height
+
+    @property
+    def volume(self) -> int:
+        return self.height * self.length * self.width
+
+
+def _is_rectangles_overlap(rec1:tuple, rec2:tuple) -> bool:
+    return not (
+        rec1[0] >= rec2[2] or rec1[1] >= rec2[3] or
+        rec2[0] >= rec1[2] or rec2[1] >= rec1[3]
+    )
+
+
+def rectangles_overlap_area(cargo0:Cargo, cargo1:Cargo, opt):
+    area = 0
+    if opt == 0:
+        rec0 = cargo0.get_shadow_of("yz")
+        rec1 = cargo1.get_shadow_of("yz")
+        if _is_rectangles_overlap(rec0, rec1):
+            # 求重叠阴影面积
+            area = area + min(abs(rec0[0]-rec1[2]),abs(rec0[2]-rec1[0])) * min(abs(rec0[1]-rec1[3]),abs(rec0[3]-rec1[1]))
+    if opt == 1:
+        rec0 = cargo0.get_shadow_of("xz")
+        rec1 = cargo1.get_shadow_of("xz")
+        if _is_rectangles_overlap(rec0, rec1):
+            # 求重叠阴影面积
+            area = area + min(abs(rec0[0]-rec1[2]),abs(rec0[2]-rec1[0])) * min(abs(rec0[1]-rec1[3]),abs(rec0[3]-rec1[1])) 
+    if opt == 2:
+        rec0 = cargo0.get_shadow_of("yz")
+        rec1 = cargo1.get_shadow_of("yz")
+        if _is_rectangles_overlap(rec0, rec1):
+            # 求重叠阴影面积
+            area = area + min(abs(rec0[0]-rec1[2]),abs(rec0[2]-rec1[0])) * min(abs(rec0[1]-rec1[3]),abs(rec0[3]-rec1[1]))   
+    return area
+
+    
+
+
+def _is_cargos_collide(cargo0: Cargo, cargo1: Cargo) -> bool:
+    return (
+        _is_rectangles_overlap(cargo0.get_shadow_of("xy"), cargo1.get_shadow_of("xy")) and
+        _is_rectangles_overlap(cargo0.get_shadow_of("yz"), cargo1.get_shadow_of("yz")) and
+        _is_rectangles_overlap(cargo0.get_shadow_of("xz"), cargo1.get_shadow_of("xz"))
+    )
+```
+
+
+#### 4. `drawer.py`
+
+```Python
+from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
+import numpy as np
+from _cargo import *
+from _container import *
+import random
+
+plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams['font.sans-serif'] = ['SimHei']
+fig:Figure = plt.figure()
+ax = fig.add_subplot(1, 1, 1, projection='3d')
+ax.view_init(elev=20, azim=40)
+plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+
+def draw_reslut(setted_container:Container):
+    plt.gca().set_box_aspect((
+        setted_container.length,
+        setted_container.width,
+        setted_container.height
+    )) 
+    _draw_container(setted_container)
+    for cargo in setted_container._setted_cargos:
+        _draw_cargo(cargo)
+    plt.show()
+
+def _draw_container(container:Container):
+    _plot_linear_cube(
+        0,0,0,
+        container.length,
+        container.width,
+        container.height
+    )
+
+def _draw_cargo(cargo:Cargo):
+    _plot_opaque_cube(
+        cargo.x, cargo.y, cargo.z,
+        cargo.length, cargo.width, cargo.height
+    )
+
+cclor = ['tomato', 'indianred', 'salmon', 'rosybrown', 'sienna', 'maroon']
+cclor = ['k', 'dimgrey', 'gray', 'darkgray', 'lightgray', 'whitesmoke']
+
+def _plot_opaque_cube(x=10, y=20, z=30, dx=40, dy=50, dz=60):
+    xx = np.linspace(x, x+dx, 2)
+    yy = np.linspace(y, y+dy, 2)
+    zz = np.linspace(z, z+dz, 2)
+    xx2, yy2 = np.meshgrid(xx, yy)
+    ax.plot_surface(xx2, yy2, np.full_like(xx2, z), color=random.choice(cclor))
+    ax.plot_surface(xx2, yy2, np.full_like(xx2, z+dz), color=random.choice(cclor))
+    yy2, zz2 = np.meshgrid(yy, zz)
+    ax.plot_surface(np.full_like(yy2, x), yy2, zz2, color=random.choice(cclor))
+    ax.plot_surface(np.full_like(yy2, x+dx), yy2, zz2, color=random.choice(cclor))
+    xx2, zz2= np.meshgrid(xx, zz)
+    ax.plot_surface(xx2, np.full_like(yy2, y), zz2, color=random.choice(cclor))
+    ax.plot_surface(xx2, np.full_like(yy2, y+dy), zz2, color=random.choice(cclor))
+
+def _plot_linear_cube(x, y, z, dx, dy, dz, color='grey'):
+    # ax = Axes3D(fig)
+    xx = [x, x, x+dx, x+dx, x]
+    yy = [y, y+dy, y+dy, y, y]
+    kwargs = {'alpha': 1, 'color': color}
+    ax.plot3D(xx, yy, [z]*5, **kwargs)
+    ax.plot3D(xx, yy, [z+dz]*5, **kwargs)
+    ax.plot3D([x, x], [y, y], [z, z+dz], **kwargs)
+    ax.plot3D([x, x], [y+dy, y+dy], [z, z+dz], **kwargs)
+    ax.plot3D([x+dx, x+dx], [y+dy, y+dy], [z, z+dz], **kwargs)
+    ax.plot3D([x+dx, x+dx], [y, y], [z, z+dz], **kwargs)
+```
+
+#### 5. `Program.py`
+
+```Python
+from _container import *
+import drawer
+from _cargo import *
+from __init__ import *
+import time
+
+
+if __name__ == "__main__":
+    '''cargos = [Cargo(108,76,30) for _ in range(2)] #246240
+    #cargos.extend([Cargo(110,43,25) for _ in range(25)]) #118250
+    cargos.extend([Cargo(92,81,55) for _ in range(2)]) #409860
+    cargos.extend([Cargo(210,120,100) for _ in range(1)])#'''
+
+    '''cargos = [Cargo(108,76,30) for _ in range(40)] #246240
+    cargos.extend([Cargo(110,43,25) for _ in range(33)]) #118250
+    cargos.extend([Cargo(92,81,55) for _ in range(39)]) #409860'''
+    '''cargos = [Cargo(91,54,45) for _ in range(32)] 
+    cargos.extend([Cargo(105,77,72) for _ in range(24)]) 
+    cargos.extend([Cargo(79,78,48) for _ in range(30)])# '''
+    cargos = [Cargo(78,37,27) for _ in range(63)] 
+    cargos.extend([Cargo(89,70,25) for _ in range(52)]) 
+    cargos.extend([Cargo(90,84,41) for _ in range(55)])# '''
+
+
+    '''cargos = [Cargo(49,25,21) for _ in range(22)] 
+    cargos.extend([Cargo(60,51,41) for _ in range(22)]) 
+    cargos.extend([Cargo(103,76,64) for _ in range(28)]) 
+    cargos.extend([Cargo(95,70,62) for _ in range(25)]) 
+    cargos.extend([Cargo(111,49,26) for _ in range(17)])#'''
+    '''cargos = [Cargo(88,54,39) for _ in range(25)] 
+    cargos.extend([Cargo(94,54,36) for _ in range(27)]) 
+    cargos.extend([Cargo(87,77,43) for _ in range(21)]) 
+    cargos.extend([Cargo(100,80,72) for _ in range(20)]) 
+    cargos.extend([Cargo(83,40,36) for _ in range(24)])#'''
+    '''cargos = [Cargo(90,70,63) for _ in range(16)] 
+    cargos.extend([Cargo(84,78,28) for _ in range(28)]) 
+    cargos.extend([Cargo(94,85,39) for _ in range(20)]) 
+    cargos.extend([Cargo(80,76,54) for _ in range(23)]) 
+    cargos.extend([Cargo(69,50,45) for _ in range(31)])#'''
+    '''cargos = [Cargo(74,63,61) for _ in range(22)] 
+    cargos.extend([Cargo(71,60,25) for _ in range(12)]) 
+    cargos.extend([Cargo(106,80,59) for _ in range(25)]) 
+    cargos.extend([Cargo(109,76,42) for _ in range(24)]) 
+    cargos.extend([Cargo(118,56,22) for _ in range(11)])#'''
+
+
+    '''cargos = [Cargo(98,73,44) for _ in range(6)] 
+    cargos.extend([Cargo(60,60,38) for _ in range(7)]) 
+    cargos.extend([Cargo(105,73,60) for _ in range(10)]) 
+    cargos.extend([Cargo(90,77,52) for _ in range(3)]) 
+    cargos.extend([Cargo(66,48,24) for _ in range(5)])
+    cargos.extend([Cargo(106,76,55) for _ in range(10)]) 
+    cargos.extend([Cargo(55,44,36) for _ in range(12)]) 
+    cargos.extend([Cargo(82,58,23) for _ in range(7)]) 
+    cargos.extend([Cargo(74,61,58) for _ in range(6)])
+    cargos.extend([Cargo(81,39,24) for _ in range(8)]) 
+    cargos.extend([Cargo(71,65,39) for _ in range(11)]) 
+    cargos.extend([Cargo(105,97,47) for _ in range(4)]) 
+    cargos.extend([Cargo(114,97,69) for _ in range(5)])
+    cargos.extend([Cargo(103,78,55) for _ in range(6)]) 
+    cargos.extend([Cargo(93,66,55) for _ in range(6)])#'''
+
+    start = time.time()
+    case = Container(587,233,220)
+    print(
+        encase_cargos_into_container(cargos,case,VolumeGreedyStrategy)
+    )
+    end = time.time()
+    print("消耗时间为：", end - start)
+    case.save_encasement_as_file()
+    drawer.draw_reslut(case)
+```
+
+### 1.2 加入退火算法代码
+
+其余的文件没有变动的，改动了Program文件。
+
+#### 1. `Program.py`
+
+```Python    
+from _container import *
+import drawer
+from _cargo import *
+from __init__ import *
+from random import *
+import numpy as np
+
+
+if __name__ == "__main__":
+    #模拟退火参数设置
+    St = 1
+    L = 0
+    Et = 0.4
+    dL = 3
+    dt = 0.9
+    ###################
+
+    # E1-1
+    cargos = [Cargo(108, 76, 30 ) for _ in range(40)]
+    cargos.extend([Cargo(110, 43, 25) for _ in range(33)])
+    cargos.extend([Cargo(92, 81, 55) for _ in range(39)])
+
+    case = Container(587,233,220)
+    sorted_list = sorted(cargos, key=lambda cargo: cargo.volume, reverse=1)
+    print(sorted_list)
+    start_list = deepcopy(sorted_list)
+    fstart = encase_cargos_into_container(cargos,case,sorted_cargos=sorted_list) #初始摆放时的空间利用率
+    print(start_list,'1111')
+    f = fstart
+    fbest = fstart
+    #print(f)
+    Bbest = case._setted_cargos     #初识摆放时的放置顺序
+    for i in [1,2]: # 进行两次退火
+        print("第%d次退火" %i)
+        t = St
+        Lt = L
+        while(t >= Et):
+            for j in range(Lt):
+                #E1-1
+                cargos = [Cargo(108, 76, 30 ) for _ in range(40)]
+                cargos.extend([Cargo(110, 43, 25) for _ in range(33)])
+                cargos.extend([Cargo(92, 81, 55) for _ in range(39)])
+                case = Container(587,233,220)              
+
+                # 交换路径中的这2个节点的顺序
+                s1, s2 = randint(0, int(len(sorted_list)/2) - 1), randint(int(len(sorted_list)/2), len(sorted_list) - 1)
+                start_list[s1], start_list[s2], = start_list[s2], start_list[s1]
+                
+                print(start_list,'!!')
+                print(len(start_list))
+                temp_list = deepcopy(start_list)
+                temp_list2 = deepcopy(start_list)
+                f1 = encase_cargos_into_container(cargos, case, sorted_cargos = temp_list)
+                print("第%d次的利用率 = " %j, f1)
+                #drawer.draw_reslut(case,'')  # 画出最终装箱的效果图
+                B1 = case._setted_cargos
+                df = f1 - f
+                if(df > 0):
+                    f = f1
+                    B = B1
+                    if (f > fbest):
+                        fbest = f
+                        Bbest = B
+                        start_list = temp_list2
+                else:
+                    x = random()
+                    if(x < np.exp(10*df/t)):
+                        f = f1
+                        B = B1
+                        start_list = temp_list2
+            Lt += dL
+            t *= dt
+    
+    print("初始装箱率=", fstart)
+    print("最高的装箱率=", fbest)
+```
 
 ### 2. 结果评估
 
 下图是装箱结果示意图：
 ![image](https://github.com/ZhouZhidan1212/3D_packing_homework/blob/main/images/image3.png)
+
+下表是实验结果，由于退火算法耗时太长，每一次运算耗时三四个小时，因此我们就选择实验了几个case：
+|||||
+|-|-|-|-|
+|||初步算法|退火算法|
+|3种箱子|E1-1|0.862179|0.870249|
+||E1-2|0.825345|0.846219|
+||E1-3|0.810554|0.829913|
+||E1-4|0.915273|\|
+||E1-5|0.859043|\|
+|5种箱子|E2-1|0.885719|0.892465|
+||E2-2|0.850537|0.867355|
+||E2-3|0.755692|0.794312|
+||E2-4|0.816871|\|
+||E2-5|0.856844|\|
+|8种箱子|E3-1|0.880662|0.902684|
+||E3-2|0.839484|0.860121|
+||E3-3|0.867228|\|
+||E3-4|0.859428|\|
+||E3-5|0.838870|\|
+|10种箱子|E4-1|0.831654|0.862310|
+||E4-2|0.859887|0.880219|
+||E4-3|0.854682|\|
+||E4-4|0.856146|\|
+||E4-5|0.818804|\|
+|15种箱子|E5-1|0.862838|0.894377|
+||E5-2|0.857390|0.883702|
+||E5-3|0.855311|\|
+||E5-4|0.819068|\|
+||E5-5|0.847980|\|
+
